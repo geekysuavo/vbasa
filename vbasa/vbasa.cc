@@ -18,14 +18,21 @@ PYBIND11_MODULE(vbasa, m) {
          py::arg("prior_gamma"))
     /* sizes: */
     .def_property_readonly(
-         "m", [](vbasa::Model& model) -> int { return model.Xa.rows(); },
+         "m",
+         &vbasa::Model::num_target,
          "Number of target points")
     .def_property_readonly(
-         "n", [](vbasa::Model& model) -> int { return model.Ya.rows(); },
+         "n",
+         &vbasa::Model::num_source,
          "Number of source points")
     .def_property_readonly(
-         "k", [](vbasa::Model& model) -> int { return model.Xa.cols(); },
+         "k",
+         &vbasa::Model::dims,
          "Point cloud dimensionality")
+    .def_property_readonly(
+         "sizes",
+         &vbasa::Model::sizes,
+         "Triple of (m,n,k)")
     /* input point clouds: */
     .def_readonly(
          "Xa", &vbasa::Model::Xa,
@@ -84,6 +91,10 @@ PYBIND11_MODULE(vbasa, m) {
     .def_readonly(
          "Z", &vbasa::Model::Z,
          "Expected assigmnets")
+    .def_property_readonly(
+         "bound",
+         &vbasa::Model::bound,
+         "Variational lower bound on the model evidence (ELBO)")
     /* methods: */
     .def("observe",
          &vbasa::Model::observe,
@@ -94,12 +105,13 @@ PYBIND11_MODULE(vbasa, m) {
          "Observe a dataset of two paired point clouds")
     .def("step",
          &vbasa::Model::step,
+         py::arg("modify") = true,
          "Perform an optimization step")
     .def("optimize",
          &vbasa::Model::optimize,
-         py::arg("iterations") = 1,
-         py::arg("absolute_tolerance") = 1e3,
-         py::arg("relative_tolerance") = 0.001,
+         py::arg("iterations") = 1000,
+         py::arg("absolute_tolerance") = 0.001,
+         py::arg("relative_tolerance") = 0.01,
          "Optimize the variational lower bound");
 
   /* vbasa.model() */

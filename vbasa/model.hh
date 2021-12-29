@@ -57,19 +57,32 @@ struct Model {
     if (xb.cols() != k || ya.cols() != k || yb.cols() != k)
       throw std::length_error("column count mismatch");
 
+    /* store the input data. */
     Xa = xa;
     Xb = xb;
     Ya = ya;
     Yb = yb;
 
+    /* initialize the prior parameters. */
     omega0.resize(m, n);
     A0.resize(k, k);
 
+    /* FIXME: init omega0 */
+    A0.setZero();
+
+    /* initialize the fit parameters. */
     alpha.resize(n);
     beta.resize(n);
     eta.resize(k);
     A.resize(k, k);
 
+    alpha.fill(alpha0);
+    beta.fill(beta0);
+    gamma = gamma0;
+    eta.setZero();
+    A = A0;
+
+    /* initialize the expectations. */
     lambda.resize(n);
     ln_lambda.resize(n);
     t.resize(k);
@@ -79,16 +92,24 @@ struct Model {
     R.resize(k, k);
     tt.resize(k, k);
 
-    /* FIXME: where to prior values come from? */
+    step(/*modify=*/false);
   }
 
   /* step(): perform a single optimization step.
    *
+   * arguments:
+   *  @modify: if false, only expectations are updated.
+   *
    * returns:
    *  value of the variational lower bound.
    */
-  double step() {
-    return 0; /* FIXME */
+  double step(bool modify = true) {
+    update_rotation(modify);
+    update_translation(modify);
+    update_assignments(modify);
+    update_precisions(modify);
+
+    return bound();
   }
 
   /* optimize(): optimize variational parameters.
@@ -102,11 +123,78 @@ struct Model {
    *  final value of the variational lower bound.
    */
   double optimize(
-    unsigned int iters = 1,
-    double th_abs = 1e3,
-    double th_rel = 0.001
+    unsigned int iters = 1000,
+    double th_abs = 0.001,
+    double th_rel = 0.01
   ) {
-    return 0; /* FIXME */
+    double elbo = bound();
+
+    for (unsigned int it = 0; it < iters; it++) {
+      const double elbo_prev = elbo;
+      elbo = step();
+
+      const double change = std::abs(elbo_prev - elbo);
+      const double rel_change = change / elbo_prev;
+
+      if (change < th_abs || rel_change < th_rel)
+        break;
+    }
+
+    return elbo;
+  }
+
+  /* update_rotation(): update q(R), the rotation factor.
+   */
+  void update_rotation(bool modify) {
+    /* FIXME: write update_rotation() */
+  }
+
+  /* update_translation(): update q(t), the translation factor.
+   */
+  void update_translation(bool modify) {
+    /* FIXME: write update_translation() */
+  }
+
+  /* update_assignments(): update q(Z), the assignments factor.
+   */
+  void update_assignments(bool modify) {
+    /* FIXME: write update_assignments() */
+  }
+
+  /* update_precisions(): update q(lambda), the noise precision factors.
+   */
+  void update_precisions(bool modify) {
+    /* FIXME: write update_precisions() */
+  }
+
+  /* bound(): compute the variational lower bound.
+   */
+  double bound() const {
+    return 0; /* FIXME: write bound() */
+  }
+
+  /* num_target(): get the number of target point pairs (m).
+   */
+  unsigned int num_target() const {
+    return Xa.rows();
+  }
+
+  /* num_source(): get the number of source point pairs (n).
+   */
+  unsigned int num_source() const {
+    return Ya.rows();
+  }
+
+  /* dims(): get the point cloud dimensionality (k).
+   */
+  unsigned int dims() const {
+    return Xa.cols();
+  }
+
+  /* sizes(): return a tuple holding (m, n, k).
+   */
+  std::tuple<unsigned int, unsigned int, unsigned int> sizes() const {
+    return {num_target(), num_source(), dims()};
   }
 
   /* input point clouds:
