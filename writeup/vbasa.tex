@@ -1,0 +1,286 @@
+
+\documentclass{article}
+
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{amsfonts}
+\usepackage{parskip}
+\usepackage{color}
+\usepackage{soul}
+
+\newcommand{\lh}{\mathopen{}\mathclose\bgroup\left}
+\newcommand{\rh}{\aftergroup\egroup\right}
+
+\newcommand{\E}[1]{\lh\langle #1 \rh\rangle}
+\newcommand{\m}[1]{\boldsymbol{#1}}
+
+\newcommand{\setD}{\mathcal{D}}
+\newcommand{\setR}{\mathcal{R}}
+\newcommand{\setX}{\mathcal{X}}
+\newcommand{\setY}{\mathcal{Y}}
+\newcommand{\const}{\mathrm{const.}}
+
+\DeclareMathOperator{\trace}{tr}
+\DeclareMathOperator{\mvec}{vec}
+
+\begin{document}
+
+\title{Variational Bayesian active site alignment}
+\author{Bradley Worley}
+\maketitle
+
+\begin{abstract}
+The problem of protein active site alignment is posed
+as one of joint statistical inference of a pairwise
+matching matrix and a rotation and translation, and
+a variational inference algorithm is constructed
+for learning posterior parameter estimates.
+\end{abstract}
+
+\section{Probabilistic formulation}
+We are given two point sets:
+\begin{itemize}
+ \item $\setX = \{ \m{x}_i^\alpha, \m{x}_i^\beta \}_{i=1}^m$:
+  The \emph{target} point set.
+ \item $\setY = \{ \m{y}_j^\alpha, \m{y}_j^\beta \}_{j=1}^n$:
+  The \emph{source} point set.
+\end{itemize}
+where
+$\forall i,j: \m{x}_i^\alpha,\m{y}_j^\alpha,\m{x}_i^\beta,\m{y}_j^\beta \in \setR^k$.
+Denote by $\setD = (\setX, \setY)$ the input data.
+
+We introduce the following unknown quantities:
+\begin{itemize}
+ \item $\m{Z} \in \{0,1\}^{m \times n}$: The matching matrix, such that
+  $z_{ij} = 1$ indicates that $\setX_i$ is matched to $\setY_j$.
+ \item $\m{R} \in \setR^{k \times k}$: The rotation matrix, where $\m{R}$
+  is orthonormal and has positive unit determinant.
+ \item $\m{t} \in \setR^k$: The translation vector.
+\end{itemize}
+
+Following the common strategy in probabilistic point cloud registration,
+we define the following likelihood:
+\begin{equation}
+\begin{aligned}
+p(\setD &\mid \m{Z}, \m{R}, \m{t}, \m{\lambda}) =
+\\
+&\prod_{i=1}^m \prod_{j=1}^n \lh[
+ \mathcal{N}_k\lh(
+   \m{x}_i^\alpha; \m{R} \m{y}_j^\alpha + \m{t}, \lambda_j^{-1} \m{I}
+ \rh) \,
+ \mathcal{N}_k\lh(
+   \m{x}_i^\beta; \m{R} \m{y}_j^\beta + \m{t}, \lambda_j^{-1} \m{I}
+ \rh) \rh]^{z_{ij}}
+\end{aligned}
+\end{equation}
+where $\mathcal{N}_d(\m{x}; \m{\mu}, \m{\Sigma})$ denotes the $d$-variate
+normal density function with mean vector $\m{\mu}$ and covariance matrix
+$\m{\Sigma}$,
+\begin{equation}
+\mathcal{N}_d(\m{x}; \m{\mu}, \m{\Sigma}) =
+ (2 \pi)^{-\frac{d}{2}}
+ \det(\m{\Sigma})^{-\frac{1}{2}}
+ \exp\left\{
+  -\frac{1}{2} (\m{x} - \m{\mu})^\top \m{\Sigma}^{-1} (\m{x} - \m{\mu})
+ \right\}
+\end{equation}
+
+We assign an i.i.d.~gamma prior to the precisions,
+\begin{equation}
+p(\m{\lambda}) =
+ \prod_{j=1}^n \frac{\beta_0^{\alpha_0}}{\Gamma(\alpha_0)}
+  \lambda_j^{\alpha_0 - 1} \exp\lh\{ -\beta_0 \lambda_j \rh\}
+\end{equation}
+a $k$-variate normal prior to the translation vector,
+\begin{equation}
+p(\m{t}) = \mathcal{N}_k\left( \m{t}; \m{0}, \gamma_0^{-1} \m{I} \right)
+\end{equation}
+and a matrix Fisher distribution to the rotation matrix,
+\begin{equation}
+p(\m{R}) =
+ C_2(\m{A}_0)^{-1} \exp\left\{ \trace(\m{A}_0^\top \m{R}) \right\}
+\end{equation}
+where $\m{A}_0 \in \setR^{k \times k}$.
+
+To complete the joint distribution, we assign the following distribution
+to the matching matrix:
+\begin{equation}
+p(\m{Z}) = \prod_{i=1}^m \prod_{j=1}^n \omega_{0,ij}^{z_{ij}}
+\end{equation}
+where $\m{\Omega}_0$ is a fixed matrix of prior matching probabilities,
+based on e.g.~BLOSUM62.
+
+Thus, the final joint distribution has the form,
+\begin{equation}
+p(\setD, \m{Z}, \m{R}, \m{t}, \m{\lambda}) =
+ p(\setD \mid \m{Z}, \m{R}, \m{t}, \m{\lambda}) \,
+ p(\m{Z}) \,
+ p(\m{R}) \, p(\m{t}) \,
+ p(\m{\lambda})
+\end{equation}
+
+\clearpage
+\section{Variational inference}
+We employ a structured mean-field approximation:
+\begin{equation}
+q(\m{Z}, \m{R}, \m{t}, \m{\lambda}) =
+ q(\m{Z}) \,
+ q(\m{R}) \,
+ q(\m{t}) \,
+ q(\m{\lambda})
+\end{equation}
+and write the log-joint function (neglecting constant terms):
+\begin{equation}
+\begin{aligned}
+\ln p &= \quad
+   \frac{1}{2} \sum_{i,j} z_{ij} \lh[ k \ln \lambda_j - \lambda_j
+    \lh( \m{x}_i^\alpha - \m{R} \m{y}_j^\alpha - \m{t} \rh)^\top
+    \lh( \m{x}_i^\alpha - \m{R} \m{y}_j^\alpha - \m{t} \rh)
+   \rh]
+\\ &\quad
+ + \frac{1}{2} \sum_{i,j} z_{ij} \lh[ k \ln \lambda_j - \lambda_j
+    \lh( \m{x}_i^\beta - \m{R} \m{y}_j^\beta - \m{t} \rh)^\top
+    \lh( \m{x}_i^\beta - \m{R} \m{y}_j^\beta - \m{t} \rh)
+   \rh]
+\\ &\quad
+ + \sum_{i,j} z_{ij} \ln \omega_{0,ij} + \trace(\m{A}_0^\top \m{R})
+ -\frac{1}{2} \m{t}^\top (\gamma_0 \m{I}) \m{t}
+\\ &\quad
+ + \sum_j \lh[ (\alpha_0 - 1) \ln \lambda_j - \beta_0 \lambda_j \rh]
+\end{aligned}
+\end{equation}
+
+We introduce a convenient shorthand for the quadratic forms:
+\begin{equation}
+\forall \tau \in \{\alpha, \beta\}: \;
+Q_{ij}^\tau \equiv
+ \lh( \m{x}_i^\tau - \m{R} \m{y}_j^\tau - \m{t} \rh)^\top
+ \lh( \m{x}_i^\tau - \m{R} \m{y}_j^\tau - \m{t} \rh)
+\end{equation}
+
+\subsection{Updates to $q(\m{Z})$}
+Collecting all terms involving $z_{ij}$ and simplifying yields:
+\begin{equation}
+\ln q^*(\m{Z}) = \sum_{i,j} z_{ij} \ln \zeta_{ij} + \const{}
+\end{equation}
+where we have implicitly defined the intermediate quantity $\m{\zeta}$ via,
+\begin{equation}
+\ln \zeta_{ij} \equiv
+  \ln \omega_{0,ij}
+  +k \E{\ln \lambda_j}
+  -\frac{1}{2} \E{\lambda_j} \lh( \E{Q_{ij}^\alpha} + \E{Q_{ij}^\beta} \rh)
+\end{equation}
+
+Normalizing this distribution yields:
+\begin{equation}
+q^*(\m{Z}) = \prod_{i,j} \omega_{ij}^{z_{ij}}
+\end{equation}
+where the new variational parameter $\m{\Omega}$ is defined as,
+\begin{equation}
+\omega_{ij} \equiv \frac{\zeta_{ij}}{\sum_\sigma \zeta_{i\sigma}}
+\end{equation}
+and therefore $\E{\m{Z}} = \m{\Omega}$.
+
+\subsection{Updates to $q(\m{R})$}
+Collecting all terms involving $\m{R}$ and simplifying yields:
+\begin{equation}
+\ln q^*(\m{R}) = \trace\lh( \m{A}^\top \m{R} \rh) + \const{}
+\end{equation}
+where the new variational parameter $\m{A}$ is defined by,
+\begin{equation}
+\m{A} \equiv
+ \m{A}_0
+ +\sum_{i,j} \E{z_{ij}} \E{\lambda_j} \lh(
+     \m{x}_i^\alpha \m{y}_j^{\alpha\top}
+    +\m{x}_i^\beta \m{y}_j^{\beta\top}
+    -\E{\m{t}} \m{y}_j^{\alpha\top}
+    -\E{\m{t}} \m{y}_j^{\beta\top}
+ \rh)
+\end{equation}
+
+Computation of $\E{\m{R}}$ from $\m{A}$ requires one-dimensional quadrature
+after a proper singular value decomposition.
+(cf.~Lee et al., 2018).
+
+\subsection{Updates to $q(\m{t})$}
+Collecting all terms involving $\m{t}$ and simplifying yields:
+\begin{equation}
+\ln q^*(\m{t}) =
+ -\frac{1}{2} \m{t}^\top (\gamma \m{I}) \m{t}
+ +\m{\eta}^\top \m{t}
+ +\const{}
+\end{equation}
+where the new variational parameters $\gamma$ and $\m{\eta}$ are defined by,
+\begin{equation}
+\begin{aligned}
+\gamma &\equiv \gamma_0 + 2 \sum_{i,j} \E{z_{ij}} \E{\lambda_j}
+\\
+\m{\eta} &\equiv
+ \sum_{i,j} \E{z_{ij}} \E{\lambda_j} \lh[
+   \lh( \m{x}_i^\alpha - \E{\m{R}} \m{y}_j^\alpha \rh)
+  +\lh( \m{x}_i^\beta - \E{\m{R}} \m{y}_j^\beta \rh)
+ \rh]
+\end{aligned}
+\end{equation}
+
+Completing the square yields expressions for the moments:
+\begin{equation}
+\begin{aligned}
+\E{\m{t}} &= \gamma^{-1} \m{\eta}
+\\
+\E{\m{t}^\top \m{t}} &= \gamma^{-2} \m{\eta}^\top \m{\eta} + k \gamma^{-1}
+\end{aligned}
+\end{equation}
+
+\subsection{Updates to $q(\m{\lambda})$}
+Collecting all terms involving $\lambda_j$ and simplifying yields:
+\begin{equation}
+\begin{aligned}
+\ln q^*(\m{\lambda}) &=
+ \sum_j \lh[
+  \lh( \alpha_j - 1 \rh) \ln \lambda_j - \beta_j \lambda_j
+ \rh]
+ +\const{}
+\end{aligned}
+\end{equation}
+where the new variational parameters $\m{\alpha}$ and $\m{\beta}$ are defined by,
+\begin{equation}
+\begin{aligned}
+\alpha_j &\equiv \alpha_0 + k \sum_i \E{z_{ij}}
+\\
+\beta_j &\equiv
+ \beta_0 + \frac{1}{2} \sum_i \E{z_{ij}} \lh(
+  \E{Q_{ij}^\alpha} + \E{Q_{ij}^\beta}
+ \rh)
+\end{aligned}
+\end{equation}
+and therefore,
+\begin{equation}
+\begin{aligned}
+\E{\lambda_j} &= \alpha_j / \beta_j
+\\
+\E{\ln \lambda_j} &= \psi(\alpha_j) - \ln \beta_j
+\end{aligned}
+\end{equation}
+where $\psi(\cdot)$ is the digamma function.
+
+\clearpage
+\appendix
+\section*{Useful notes}
+Expanding any quadratic form (dropping $\alpha$, $\beta$ superscripts):
+\begin{equation}
+\begin{aligned}
+Q_{ij} &=
+ \lh( \m{x}_i - \m{R} \m{y}_j - \m{t} \rh)^\top
+ \lh( \m{x}_i - \m{R} \m{y}_j - \m{t} \rh)
+\\ &=
+   \| \m{x}_i \|_2^2
+ + \| \m{y}_j \|_2^2
+ + \m{t}^\top \m{t}
+ - 2 \m{x}_i^\top \m{R} \m{y}_j
+ - 2 \m{x}_i^\top \m{t}
+ + 2 \m{t}^\top \m{R} \m{y}_j
+\end{aligned}
+\end{equation}
+
+\end{document}
