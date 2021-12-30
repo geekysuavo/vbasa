@@ -282,5 +282,16 @@ Q_{ij} &=
  + 2 \m{t}^\top \m{R} \m{y}_j
 \end{aligned}
 \end{equation}
+leading to the following expressions for expectations:
+\begin{equation}
+%\begin{aligned}
+\E{Q_{ij}} =
+   \| \m{x}_i \|_2^2
+ + \| \m{y}_j \|_2^2
+ + \E{\m{t}^\top \m{t}}
+ - 2 \E{\m{t}}^\top \left( \m{x}_i - \E{\m{R}} \m{y}_j \right)
+ - 2 \m{x}_i^\top \E{\m{R}} \m{y}_j
+%\end{aligned}
+\end{equation}
 
 \end{document}

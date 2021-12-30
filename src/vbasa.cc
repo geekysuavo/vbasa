@@ -2,6 +2,8 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/eigen.h>
 
+#include <unsupported/Eigen/SpecialFunctions>
+
 namespace py = pybind11;
 constexpr double pi = 3.141592653589793238462643383279502884;
 
@@ -80,7 +82,7 @@ PYBIND11_MODULE(vbasa, m) {
          "Precision of the translation vector")
     /* expectations: */
     .def_readonly(
-         "lambda", &vbasa::Model::lambda,
+         "lmb", &vbasa::Model::lambda,
          "Expected noise precision")
     .def_readonly(
          "t", &vbasa::Model::t,

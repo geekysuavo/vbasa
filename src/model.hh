@@ -3,7 +3,8 @@
 
 namespace vbasa {
 
-struct Model {
+class Model {
+public:
   /* Model(): constructor taking configuration values.
    *
    * arguments:
@@ -90,7 +91,6 @@ struct Model {
     Qb.resize(m, n);
     Z.resize(m, n);
     R.resize(k, k);
-    tt.resize(k, k);
 
     step(/*modify=*/false);
   }
@@ -141,30 +141,6 @@ struct Model {
     }
 
     return elbo;
-  }
-
-  /* update_rotation(): update q(R), the rotation factor.
-   */
-  void update_rotation(bool modify) {
-    /* FIXME: write update_rotation() */
-  }
-
-  /* update_translation(): update q(t), the translation factor.
-   */
-  void update_translation(bool modify) {
-    /* FIXME: write update_translation() */
-  }
-
-  /* update_assignments(): update q(Z), the assignments factor.
-   */
-  void update_assignments(bool modify) {
-    /* FIXME: write update_assignments() */
-  }
-
-  /* update_precisions(): update q(lambda), the noise precision factors.
-   */
-  void update_precisions(bool modify) {
-    /* FIXME: write update_precisions() */
   }
 
   /* bound(): compute the variational lower bound.
@@ -234,10 +210,79 @@ struct Model {
    *  @Qa, @Qb: [m, n], squared alignment errors of alpha and beta.
    *  @Z: [m, n], assignment matrix.
    *  @R: [k, k], rotation matrix.
-   *  @tt: [k, k], translation second non-central moment.
+   *
+   * scalar-valued expectations:
+   *  @tt: translation inner product.
    */
   Eigen::VectorXd lambda, ln_lambda, t;
-  Eigen::MatrixXd Qa, Qb, Z, R, tt;
+  Eigen::MatrixXd Qa, Qb, Z, R;
+  double tt;
+
+private:
+  /* update_rotation(): update q(R), the rotation factor.
+   */
+  void update_rotation(bool modify) {
+    /* FIXME: write update_rotation() */
+  }
+
+  /* update_translation(): update q(t), the translation factor.
+   */
+  void update_translation(bool modify) {
+    /* FIXME: write update_translation() */
+  }
+
+  /* update_assignments(): update q(Z), the assignments factor.
+   */
+  void update_assignments(bool modify) {
+    /* FIXME: write update_assignments() */
+  }
+
+  /* update_precisions(): update q(lambda), the noise precision factors.
+   */
+  void update_precisions(bool modify) {
+    if (modify) {
+      const double k = dims();
+      Eigen::VectorXd z = Z.colwise().sum();
+      Eigen::VectorXd zqq = (Z.array() * (Qa + Qb).array()).colwise().sum();
+
+      alpha = alpha0 + k * z.array();
+      beta = beta0 + 0.5 * zqq.array();
+    }
+
+    lambda = alpha.array() / beta.array();
+    ln_lambda = alpha.array().digamma() - beta.array().log();
+  }
+
+  /* recompute_alignment_errors(): recompute Qa and Qb.
+   */
+  void recompute_alignment_errors() {
+    recompute_alignment_errors_impl(Xa, Ya, Qa);
+    recompute_alignment_errors_impl(Xb, Yb, Qb);
+  }
+
+  /* recompute_alignment_errors_impl(): recompute a Q-matrix expectation.
+   */
+  void recompute_alignment_errors_impl(
+    const Eigen::Ref<const Eigen::MatrixXd> X,
+    const Eigen::Ref<const Eigen::MatrixXd> Y,
+    Eigen::Ref<Eigen::MatrixXd> Q
+  ) {
+    const auto [m, n, k] = sizes();
+    Eigen::VectorXd x, y, Ry;
+
+    for (unsigned int j = 0; j < n; j++) {
+      y = Y.row(j);
+      Ry = R * y;
+      const double y2 = y.squaredNorm();
+
+      for (unsigned int i = 0; i < m; i++) {
+        x = X.row(i);
+        const double x2 = x.squaredNorm();
+
+        Q(i, j) = x2 + y2 + tt - 2 * t.dot(x - Ry) - 2 * x.dot(Ry);
+      }
+    }
+  }
 };
 
 } /* namespace vbasa */

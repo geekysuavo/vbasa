@@ -106,6 +106,25 @@ def test_properties(model: vbasa.Model):
     assert np.all(model.eta == 0)
 
     # expectations
-    # FIXME
+    assert isinstance(model.t, np.ndarray)
+    assert isinstance(model.lmb, np.ndarray)
+
+    assert isinstance(model.Z, np.ndarray)
+    assert isinstance(model.R, np.ndarray)
 
     assert isinstance(model.bound, float)
+
+    assert model.t.shape == (model.k,)
+    assert model.lmb.shape == (model.n,)
+
+    assert model.Z.shape == (model.m, model.n)
+    assert model.R.shape == (model.k, model.k)
+
+    assert np.all(model.Z > 0)
+
+
+def test_step(model: vbasa.Model):
+    elbo = model.step()
+
+    assert isinstance(elbo, float)
+    assert elbo == model.bound

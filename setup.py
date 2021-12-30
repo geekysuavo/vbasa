@@ -4,7 +4,7 @@ from pybind11.setup_helpers import Pybind11Extension, build_ext
 
 ext_module = Pybind11Extension(
     name="vbasa",
-    sources=["vbasa/vbasa.cc"],
+    sources=["src/vbasa.cc"],
     include_dirs=["/usr/local/include/eigen3"],
 )
 
