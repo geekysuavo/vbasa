@@ -128,3 +128,11 @@ def test_step(model: vbasa.Model):
 
     assert isinstance(elbo, float)
     assert elbo == model.bound
+
+
+def test_optimize(model: vbasa.Model):
+    initial_elbo = model.bound
+    elbo = model.optimize(iterations=10)
+
+    assert isinstance(elbo, float)
+    assert elbo >= initial_elbo

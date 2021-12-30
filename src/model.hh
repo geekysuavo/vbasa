@@ -11,8 +11,14 @@ public:
    *  @prior_alpha: initial value of alpha0.
    *  @prior_beta: initial value of beta0.
    *  @prior_gamma: initial value of gamma0.
+   *  @prior_rho: initial value of rho0.
    */
-  Model(double prior_alpha, double prior_beta, double prior_gamma) {
+  Model(
+    double prior_alpha,
+    double prior_beta,
+    double prior_gamma,
+    double prior_rho
+  ) {
     if (prior_alpha <= 0)
       throw std::out_of_range("prior noise shape must be positive");
 
@@ -22,14 +28,18 @@ public:
     if (prior_gamma <= 0)
       throw std::out_of_range("prior precision must be positive");
 
+    if (prior_rho <= 0)
+      throw std::out_of_range("prior matrix diag must be positive");
+
     alpha0 = prior_alpha;
     beta0 = prior_beta;
     gamma0 = prior_gamma;
+    rho0 = prior_rho;
   }
 
   /* Model(): default constructor.
    */
-  Model() : Model(0.001, 0.001, 0.001) {}
+  Model() : Model(1e-3, 1e-3, 1e-4, 1e-6) {}
 
   /* observe(): initialize member data given an input data set.
    *
@@ -69,7 +79,7 @@ public:
     A0.resize(k, k);
 
     /* FIXME: init omega0 */
-    A0.setZero();
+    A0.diagonal() = Eigen::ArrayXd::Constant(k, 1, rho0);
 
     /* initialize the fit parameters. */
     alpha.resize(n);
@@ -183,10 +193,11 @@ public:
    *  @alpha0: alignment noise shape.
    *  @beta0: alignment noise rate.
    *  @gamma0: translation precision.
+   *  @rho0: rotation parameter diagonal.
    *  @omega0: [m, n], assignment weights.
    *  @A0: [k, k], rotation parameter.
    */
-  double alpha0, beta0, gamma0;
+  double alpha0, beta0, gamma0, rho0;
   Eigen::MatrixXd omega0;
   Eigen::MatrixXd A0;
 
@@ -222,19 +233,33 @@ private:
   /* update_rotation(): update q(R), the rotation factor.
    */
   void update_rotation(bool modify) {
-    /* FIXME: write update_rotation() */
+    if (modify) {
+      /* FIXME: update A */
+    }
+
+    /* FIXME: update R */
+
+    recompute_alignment_errors();
   }
 
   /* update_translation(): update q(t), the translation factor.
    */
   void update_translation(bool modify) {
-    /* FIXME: write update_translation() */
+    if (modify) {
+      /* FIXME: update gamma, eta */
+    }
+
+    /* FIXME: update t, tt */
+
+    recompute_alignment_errors();
   }
 
   /* update_assignments(): update q(Z), the assignments factor.
    */
   void update_assignments(bool modify) {
-    /* FIXME: write update_assignments() */
+    if (modify) {
+      /* FIXME: update Z */
+    }
   }
 
   /* update_precisions(): update q(lambda), the noise precision factors.

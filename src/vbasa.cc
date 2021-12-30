@@ -14,10 +14,11 @@ PYBIND11_MODULE(vbasa, m) {
   /* vbasa.Model */
   py::class_<vbasa::Model>(m, "Model")
     /* constructor: */
-    .def(py::init<double, double, double>(),
+    .def(py::init<double, double, double, double>(),
          py::arg("prior_alpha"),
          py::arg("prior_beta"),
-         py::arg("prior_gamma"))
+         py::arg("prior_gamma"),
+         py::arg("prior_rho"))
     /* sizes: */
     .def_property_readonly(
          "m",
@@ -123,9 +124,10 @@ PYBIND11_MODULE(vbasa, m) {
         py::arg("target_points_beta"),
         py::arg("source_points_alpha"),
         py::arg("source_points_beta"),
-        py::arg("prior_noise_shape") = 0.001,
-        py::arg("prior_noise_rate") = 0.001,
-        py::arg("prior_precision") = 0.001,
+        py::arg("prior_noise_shape") = 1e-3,
+        py::arg("prior_noise_rate") = 1e-3,
+        py::arg("prior_precision") = 1e-4,
+        py::arg("prior_diag") = 1e-6,
         "Create an initialize a new model from point cloud data");
 }
 
