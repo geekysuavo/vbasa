@@ -79,6 +79,7 @@ public:
     A0.resize(k, k);
 
     /* FIXME: init omega0 */
+    A0.setZero();
     A0.diagonal() = Eigen::ArrayXd::Constant(k, 1, rho0);
 
     /* initialize the fit parameters. */
