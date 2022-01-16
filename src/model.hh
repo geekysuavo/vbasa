@@ -293,7 +293,7 @@ private:
     Eigen::VectorXd es(k);
     double norm;
 
-    /* FIXME: compute c(s), diff(c(s), s). */ norm=1;es.fill(1);
+    matrix_fisher_quad(s(0), s(1), s(2), norm, es);
 
     /* update the expectations. */
     R = U * es.asDiagonal() * V.transpose();
@@ -391,6 +391,84 @@ private:
         Q(i, j) = x2 + y2 + tt - 2 * t.dot(x - Ry) - 2 * x.dot(Ry);
       }
     }
+  }
+
+  /* matrix_fisher_quad(): use trapezoidal quadrature to compute the
+   * normalizing constant and expected singular values of a matrix
+   * fisher density.
+   */
+  static void matrix_fisher_quad(
+    double si,
+    double sj,
+    double sk,
+    double& norm,
+    Eigen::Ref<Eigen::VectorXd> es,
+    unsigned int n = 1024
+  ) {
+    Eigen::ArrayXd x, fx;
+    x = Eigen::ArrayXd::LinSpaced(n, -1, 1);
+    const double dx = x(1) - x(0);
+
+    auto trapz = [&](auto f) -> double {
+      fx = x.unaryExpr(f);
+      fx(n - 1) *= 0.5;
+      fx(0) *= 0.5;
+
+      return dx * fx.sum();
+    };
+
+    auto integrand_norm = [si, sj, sk](double u) -> double {
+      const double sm = 0.5 * (si - sj) * (1 - u);
+      const double sp = 0.5 * (si + sj) * (1 + u);
+      const double esu = std::exp(sk * u);
+
+      return 0.5 * besi0(sm) * besi0(sp) * esu;
+    };
+
+    auto integrand_diff_i = [si, sj, sk](double u) -> double {
+      const double sm = 0.5 * (si - sj) * (1 - u);
+      const double sp = 0.5 * (si + sj) * (1 + u);
+      const double esu = std::exp(sk * u);
+
+      return 0.25 * (1 - u) * besi1(sm) * besi0(sp) * esu
+           + 0.25 * (1 + u) * besi0(sm) * besi1(sp) * esu;
+    };
+
+    auto integrand_diff_j = [si, sj, sk](double u) -> double {
+      const double sm = 0.5 * (si - sj) * (1 - u);
+      const double sp = 0.5 * (si + sj) * (1 + u);
+      const double esu = std::exp(sk * u);
+
+      return 0.25 * (1 + u) * besi0(sm) * besi1(sp) * esu
+           - 0.25 * (1 - u) * besi1(sm) * besi0(sp) * esu;
+    };
+
+    auto integrand_diff_k = [si, sj, sk](double u) -> double {
+      const double sm = 0.5 * (si - sj) * (1 - u);
+      const double sp = 0.5 * (si + sj) * (1 + u);
+      const double esu = std::exp(sk * u);
+
+      return 0.5 * besi0(sm) * besi0(sp) * u * esu;
+    };
+
+    norm = trapz(integrand_norm);
+    es(0) = trapz(integrand_diff_i);
+    es(1) = trapz(integrand_diff_j);
+    es(2) = trapz(integrand_diff_k);
+  }
+
+  /* besi0(): compute the modified bessel function of order 0.
+   */
+  static double besi0(double x) {
+    /* FIXME: return std::cyl_bessel_i(0, x); */
+    return 1.0;
+  }
+
+  /* besi1(): compute the modified bessel function of order 1.
+   */
+  static double besi1(double x) {
+    /* FIXME: return std::cyl_bessel_i(1, x); */
+    return 1.0;
   }
 };
 
