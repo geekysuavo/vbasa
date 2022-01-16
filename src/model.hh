@@ -70,6 +70,9 @@ public:
     if (xb.cols() != k || ya.cols() != k || yb.cols() != k)
       throw std::length_error("column count mismatch");
 
+    if (k != 3)
+      throw std::length_error("only three-dimensional data are supported");
+
     /* store the input data. */
     Xa = xa;
     Xb = xb;

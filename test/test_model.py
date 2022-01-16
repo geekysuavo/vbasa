@@ -20,7 +20,7 @@ def num_source(request) -> int:
     return request.param
 
 
-@pytest.fixture(params=(2, 3))
+@pytest.fixture(params=(3,))
 def dims(request) -> int:
     return request.param
 
