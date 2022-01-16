@@ -1,6 +1,7 @@
 
 #include <pybind11/pybind11.h>
 #include <pybind11/eigen.h>
+#include <pybind11/stl.h>
 
 #include <unsupported/Eigen/SpecialFunctions>
 
@@ -8,6 +9,8 @@ namespace py = pybind11;
 constexpr double pi = 3.141592653589793238462643383279502884;
 
 #include "model.hh"
+#include "matrix.hh"
+#include "matrices.hh"
 #include "functions.hh"
 
 PYBIND11_MODULE(vbasa, m) {
@@ -105,6 +108,7 @@ PYBIND11_MODULE(vbasa, m) {
          py::arg("target_points_beta"),
          py::arg("source_points_alpha"),
          py::arg("source_points_beta"),
+         py::arg("prior_matching") = py::none(),
          "Observe a dataset of two paired point clouds")
     .def("step",
          &vbasa::Model::step,
@@ -117,6 +121,41 @@ PYBIND11_MODULE(vbasa, m) {
          py::arg("relative_tolerance") = 0.01,
          "Optimize the variational lower bound");
 
+  /* vbasa.SubstitutionMatrix */
+  py::class_<vbasa::SubstitutionMatrix>(m, "SubstitutionMatrix")
+    .def(py::init<const vbasa::SubstitutionMatrix::sequence_t&,
+                  std::optional<const Eigen::Ref<const Eigen::MatrixXd>>,
+                  double>(),
+         py::arg("vocab"),
+         py::arg("init") = py::none(),
+         py::arg("scaling") = 1.0)
+    .def_readwrite(
+         "scale", &vbasa::SubstitutionMatrix::scale,
+         "Factor to scale scores by to get log-probability")
+    .def_property(
+         "coeffs",
+         &vbasa::SubstitutionMatrix::get_coeffs,
+         &vbasa::SubstitutionMatrix::set_coeffs,
+         "The complete matrix")
+    .def_property_readonly(
+         "vocab",
+         &vbasa::SubstitutionMatrix::get_labels,
+         "The substitution matrix vocabulary")
+    .def("__getitem__",
+         &vbasa::SubstitutionMatrix::get_item,
+         py::arg("key"),
+         "Get the value of a matrix element")
+    .def("__setitem__",
+         &vbasa::SubstitutionMatrix::set_item,
+         py::arg("key"),
+         py::arg("value"),
+         "Set the value of a matrix element")
+    .def("__call__",
+         &vbasa::SubstitutionMatrix::eval,
+         py::arg("a"),
+         py::arg("b"),
+         "Evaluate the matrix on a pair of sequences");
+
   /* vbasa.model() */
   m.def("model",
         &vbasa::create_model,
@@ -124,10 +163,18 @@ PYBIND11_MODULE(vbasa, m) {
         py::arg("target_points_beta"),
         py::arg("source_points_alpha"),
         py::arg("source_points_beta"),
+        py::arg("target_sequence"),
+        py::arg("source_sequence"),
         py::arg("prior_noise_shape") = 1e-3,
         py::arg("prior_noise_rate") = 1e-3,
         py::arg("prior_precision") = 1e-4,
         py::arg("prior_diag") = 1e-6,
+        py::arg("sub_matrix") = py::none(),
         "Create an initialize a new model from point cloud data");
+
+  /* vbasa.matrices */
+  py::module matrices = m.def_submodule("matrices");
+  matrices.add_object("pam250", vbasa::matrices::pam250());
+  matrices.add_object("blosum62", vbasa::matrices::blosum62());
 }
 

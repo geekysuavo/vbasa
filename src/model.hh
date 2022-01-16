@@ -48,12 +48,14 @@ public:
    *  @xb: [m, k], target beta points.
    *  @ya: [n, k], source alpha points.
    *  @yb: [n, k], source beta points.
+   *  @prior_matching: [m, n], optional value of @omega0.
    */
   void observe(
     const Eigen::Ref<const Eigen::MatrixXd> xa,
     const Eigen::Ref<const Eigen::MatrixXd> xb,
     const Eigen::Ref<const Eigen::MatrixXd> ya,
-    const Eigen::Ref<const Eigen::MatrixXd> yb
+    const Eigen::Ref<const Eigen::MatrixXd> yb,
+    std::optional<Eigen::MatrixXd> prior_matching = {}
   ) {
     const auto m = xa.rows();
     const auto n = ya.rows();
@@ -78,7 +80,21 @@ public:
     omega0.resize(m, n);
     A0.resize(k, k);
 
-    /* FIXME: init omega0 */
+    omega0.fill(1.0);
+    if (prior_matching) {
+      auto omega0_init = prior_matching.value();
+      if (omega0_init.rows() != m || omega0_init.cols() != n)
+        throw std::length_error("prior matching matrix size mismatch");
+
+      if ((omega0_init.array() <= 0).any())
+        throw std::domain_error("prior matching matrix must be positive");
+
+      omega0 = omega0_init;
+    }
+
+    Eigen::VectorXd omega0_sums = omega0.rowwise().sum().cwiseInverse();
+    omega0 = omega0_sums.asDiagonal() * omega0;
+
     A0.setZero();
     A0.diagonal() = Eigen::ArrayXd::Constant(k, 1, rho0);
 
