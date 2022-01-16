@@ -5,6 +5,11 @@ import vbasa
 import numpy as np
 
 
+@pytest.fixture(scope="module")
+def b62() -> vbasa.SubstitutionMatrix:
+    return vbasa.matrices.blosum62(scale=1)
+
+
 @pytest.fixture(params=(2, 5, 10, 20))
 def num_target(request) -> int:
     return request.param
@@ -26,7 +31,7 @@ def sizes(num_target: int, num_source: int, dims: int) -> tuple:
 
 
 @pytest.fixture
-def point_clouds(sizes: tuple) -> tuple:
+def points(sizes: tuple) -> tuple:
     (m, n, k) = sizes
     mn = max(m, n)
 
@@ -53,8 +58,14 @@ def point_clouds(sizes: tuple) -> tuple:
 
 
 @pytest.fixture
-def model(point_clouds: tuple) -> vbasa.Model:
-    return vbasa.model(*point_clouds)
+def model(points: tuple, b62: vbasa.SubstitutionMatrix) -> vbasa.Model:
+    m = points[0].shape[0]
+    n = points[2].shape[0]
+
+    sa = np.random.choice(b62.vocab, size=(m,)).tolist()
+    sb = np.random.choice(b62.vocab, size=(n,)).tolist()
+
+    return vbasa.model(*points, sa, sb, sub_matrix=b62)
 
 
 def test_properties(model: vbasa.Model):
@@ -87,7 +98,7 @@ def test_properties(model: vbasa.Model):
     assert model.gamma0 > 0
 
     assert np.all(model.omega0 > 0)
-    assert np.all(model.A0 == 0)
+    assert np.all(model.A0 >= 0)
 
     assert model.omega0.shape == (model.m, model.n)
     assert model.A0.shape == (model.k, model.k)

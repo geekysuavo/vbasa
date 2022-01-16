@@ -241,20 +241,60 @@ public:
    *
    * scalar-valued expectations:
    *  @tt: translation inner product.
+   *  @entropyR: entropy of q(R), the rotation factor.
    */
   Eigen::VectorXd lambda, ln_lambda, t;
   Eigen::MatrixXd Qa, Qb, Z, R;
-  double tt;
+  double tt, entropyR;
 
 private:
   /* update_rotation(): update q(R), the rotation factor.
    */
   void update_rotation(bool modify) {
+    const auto [m, n, k] = sizes();
+
     if (modify) {
-      /* FIXME: update A */
+      A = A0;
+      for (unsigned int i = 0; i < m; i++) {
+        for (unsigned int j = 0; j < n; j++) {
+          const double zl = Z(i, j) * lambda(j);
+          A += zl * ((Xa.row(i) - t) * Ya.row(j).transpose() +
+                     (Xb.row(j) - t) * Yb.row(j).transpose());
+        }
+      }
     }
 
-    /* FIXME: update R */
+    /* "proper" singular value decomposition, cf. Lee (2018). */
+    auto precond = Eigen::ComputeFullU | Eigen::ComputeFullV;
+    Eigen::JacobiSVD<Eigen::MatrixXd> svd(A, precond);
+    Eigen::MatrixXd U = svd.matrixU();
+    Eigen::MatrixXd V = svd.matrixV();
+    Eigen::VectorXd s(k);
+
+    const double detU = U.determinant();
+    const double detV = V.determinant();
+    const double detUV = (U * V).determinant();
+
+    s.fill(1.0);
+    s(k - 1) = detU;
+    U = U * s.asDiagonal();
+
+    s.fill(1.0);
+    s(k - 1) = detV;
+    V = V * s.asDiagonal();
+
+    s = svd.singularValues();
+    s(k - 1) *= detUV;
+
+    /* compute the normalization constant and its derivatives. */
+    Eigen::VectorXd es(k);
+    double norm;
+
+    /* FIXME: compute c(s), diff(c(s), s). */ norm=1;es.fill(1);
+
+    /* update the expectations. */
+    R = U * es.asDiagonal() * V.transpose();
+    entropyR = (A.transpose() * R).array().sum() - std::log(norm);
 
     recompute_alignment_errors();
   }
@@ -262,11 +302,23 @@ private:
   /* update_translation(): update q(t), the translation factor.
    */
   void update_translation(bool modify) {
+    const auto [m, n, k] = sizes();
+
     if (modify) {
-      /* FIXME: update gamma, eta */
+      gamma = gamma0 + 2 * (Z.array().colwise() * lambda.array()).sum();
+
+      eta.setZero();
+      for (unsigned int i = 0; i < m; i++) {
+        for (unsigned int j = 0; j < n; j++) {
+          const double zl = Z(i, j) * lambda(j);
+          eta += zl * ((Xa.row(i) - R * Ya.row(j)) +
+                       (Xb.row(i) - R * Yb.row(j)));
+        }
+      }
     }
 
-    /* FIXME: update t, tt */
+    t = eta / gamma;
+    tt = k / gamma + eta.dot(eta) / (gamma * gamma);
 
     recompute_alignment_errors();
   }
@@ -275,7 +327,19 @@ private:
    */
   void update_assignments(bool modify) {
     if (modify) {
-      /* FIXME: update Z */
+      const auto [m, n, k] = sizes();
+      Eigen::MatrixXd ql = (Qa + Qb).array().colwise() * lambda.array();
+
+      Eigen::MatrixXd zeta = omega0.array().log();
+      zeta -= 0.5 * ql;
+      zeta.colwise() += k * ln_lambda;
+      zeta = zeta.array().exp() + 1e-6;
+
+      Eigen::VectorXd zeta_sums = zeta.rowwise().sum().cwiseInverse();
+      Z = zeta_sums.asDiagonal() * zeta;
+    }
+    else {
+      Z = omega0;
     }
   }
 

@@ -3,6 +3,8 @@
 #include <pybind11/eigen.h>
 #include <pybind11/stl.h>
 
+#include <Eigen/LU>
+#include <Eigen/SVD>
 #include <unsupported/Eigen/SpecialFunctions>
 
 namespace py = pybind11;
@@ -18,10 +20,10 @@ PYBIND11_MODULE(vbasa, m) {
   py::class_<vbasa::Model>(m, "Model")
     /* constructor: */
     .def(py::init<double, double, double, double>(),
-         py::arg("prior_alpha"),
-         py::arg("prior_beta"),
-         py::arg("prior_gamma"),
-         py::arg("prior_rho"))
+         py::arg("prior_alpha") = 1e-3,
+         py::arg("prior_beta") = 1e-3,
+         py::arg("prior_gamma") = 1e-4,
+         py::arg("prior_rho") = 1e-6)
     /* sizes: */
     .def_property_readonly(
          "m",
@@ -174,7 +176,17 @@ PYBIND11_MODULE(vbasa, m) {
 
   /* vbasa.matrices */
   py::module matrices = m.def_submodule("matrices");
-  matrices.add_object("pam250", vbasa::matrices::pam250());
-  matrices.add_object("blosum62", vbasa::matrices::blosum62());
+
+  /* vbasa.matrices.pam250() */
+  matrices.def("pam250",
+               &vbasa::matrices::pam250,
+               py::arg("scale") = 1.0,
+               "Create a PAM250 substitution matrix");
+
+  /* vbasa.matrices.blosum62() */
+  matrices.def("blosum62",
+               &vbasa::matrices::blosum62,
+               py::arg("scale") = 1.0,
+               "Create a BLOSUM62 substitution matrix");
 }
 
