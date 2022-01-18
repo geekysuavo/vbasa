@@ -16,7 +16,7 @@ auto pam250(double scale = 1.0) {
   auto vocab = one_letter_codes();
   Eigen::MatrixXd init(vocab.size(), vocab.size());
 
-  /* FIXME: fill init */
+  /* FIXME: fill init for pam250() */
   init.fill(1.0);
 
   init.triangularView<Eigen::StrictlyUpper>() =

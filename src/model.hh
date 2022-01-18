@@ -251,6 +251,11 @@ public:
   double tt, entropyR;
 
 private:
+  /* @besi0, @besi1: modified bessel functions.
+   */
+  static constexpr vbasa::BesselI0 besi0{};
+  static constexpr vbasa::BesselI1 besi1{};
+
   /* update_rotation(): update q(R), the rotation factor.
    */
   void update_rotation(bool modify) {
@@ -455,20 +460,6 @@ private:
     es(0) = trapz(integrand_diff_i);
     es(1) = trapz(integrand_diff_j);
     es(2) = trapz(integrand_diff_k);
-  }
-
-  /* besi0(): compute the modified bessel function of order 0.
-   */
-  static double besi0(double x) {
-    /* FIXME: return std::cyl_bessel_i(0, x); */
-    return 1.0;
-  }
-
-  /* besi1(): compute the modified bessel function of order 1.
-   */
-  static double besi1(double x) {
-    /* FIXME: return std::cyl_bessel_i(1, x); */
-    return 1.0;
   }
 };
 
