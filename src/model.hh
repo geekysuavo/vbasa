@@ -301,7 +301,13 @@ private:
     matrix_fisher_quad(s(0), s(1), s(2), norm, es);
 
     /* update the expectations. */
-    R = U * es.asDiagonal() * V.transpose();
+    /* NOTE: this is commented out in favor of a maximization step
+     * for R, because E[R] is no longer norm preserving and throws
+     * everything off the rails.
+     */
+    //R = U * es.asDiagonal() * V.transpose();
+    R = U * V.transpose();
+
     entropyR = (A.transpose() * R).array().sum() - std::log(norm);
 
     recompute_alignment_errors();

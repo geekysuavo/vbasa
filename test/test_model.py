@@ -5,6 +5,89 @@ import vbasa
 import numpy as np
 
 
+def assert_correct_model_properties(model: vbasa.Model):
+    # sizes
+    assert model.sizes == (model.m, model.n, model.k)
+
+    # point clouds
+    assert isinstance(model.Xa, np.ndarray)
+    assert isinstance(model.Xb, np.ndarray)
+
+    assert isinstance(model.Ya, np.ndarray)
+    assert isinstance(model.Yb, np.ndarray)
+
+    assert model.Xa.shape == (model.m, model.k)
+    assert model.Xb.shape == (model.m, model.k)
+
+    assert model.Ya.shape == (model.n, model.k)
+    assert model.Yb.shape == (model.n, model.k)
+
+    for x in (model.Xa, model.Xb, model.Ya, model.Yb):
+        assert np.all(np.isfinite(x))
+
+    # prior params
+    assert isinstance(model.alpha0, float)
+    assert isinstance(model.beta0, float)
+    assert isinstance(model.gamma0, float)
+
+    assert isinstance(model.omega0, np.ndarray)
+    assert isinstance(model.A0, np.ndarray)
+
+    assert model.alpha0 > 0
+    assert model.beta0 > 0
+    assert model.gamma0 > 0
+
+    assert np.all(model.omega0 > 0)
+    assert np.all(model.A0 >= 0)
+
+    assert model.omega0.shape == (model.m, model.n)
+    assert model.A0.shape == (model.k, model.k)
+
+    assert np.all(np.isfinite(model.omega0))
+    assert np.all(np.isfinite(model.A0))
+
+    # fit params
+    assert isinstance(model.alpha, np.ndarray)
+    assert isinstance(model.beta, np.ndarray)
+    assert isinstance(model.eta, np.ndarray)
+    assert isinstance(model.A, np.ndarray)
+    assert isinstance(model.gamma, float)
+
+    for param in (model.alpha, model.beta, model.eta, model.A):
+        assert np.all(np.isfinite(param))
+
+    for param in (model.alpha, model.beta):
+        assert np.all(param > 0)
+
+    assert model.gamma > 0
+
+    # expectations
+    assert isinstance(model.t, np.ndarray)
+    assert isinstance(model.lmb, np.ndarray)
+
+    assert isinstance(model.Z, np.ndarray)
+    assert isinstance(model.R, np.ndarray)
+
+    assert isinstance(model.bound, float)
+
+    assert model.t.shape == (model.k,)
+    assert model.lmb.shape == (model.n,)
+
+    assert model.Z.shape == (model.m, model.n)
+    assert model.R.shape == (model.k, model.k)
+
+    for expect in (model.t, model.lmb, model.Z, model.R):
+        assert np.all(np.isfinite(expect))
+
+    assert np.all(model.Z > 0)
+
+    z_sums_err = np.abs(np.sum(model.Z, axis=1) - 1)
+    assert np.all(z_sums_err < 1e-6)
+
+    R_dot_err = np.abs(model.R @ model.R.T - np.eye(3))
+    assert np.all(R_dot_err < 1e-6)
+
+
 @pytest.fixture(scope="module")
 def b62() -> vbasa.SubstitutionMatrix:
     return vbasa.matrices.blosum62(scale=1)
@@ -69,69 +152,15 @@ def model(points: tuple, b62: vbasa.SubstitutionMatrix) -> vbasa.Model:
 
 
 def test_properties(model: vbasa.Model):
-    # sizes
-    assert model.sizes == (model.m, model.n, model.k)
+    # test general correctness.
+    assert_correct_model_properties(model)
 
-    # point clouds
-    assert isinstance(model.Xa, np.ndarray)
-    assert isinstance(model.Xb, np.ndarray)
-
-    assert isinstance(model.Ya, np.ndarray)
-    assert isinstance(model.Yb, np.ndarray)
-
-    assert model.Xa.shape == (model.m, model.k)
-    assert model.Xb.shape == (model.m, model.k)
-
-    assert model.Ya.shape == (model.n, model.k)
-    assert model.Yb.shape == (model.n, model.k)
-
-    # prior params
-    assert isinstance(model.alpha0, float)
-    assert isinstance(model.beta0, float)
-    assert isinstance(model.gamma0, float)
-
-    assert isinstance(model.omega0, np.ndarray)
-    assert isinstance(model.A0, np.ndarray)
-
-    assert model.alpha0 > 0
-    assert model.beta0 > 0
-    assert model.gamma0 > 0
-
-    assert np.all(model.omega0 > 0)
-    assert np.all(model.A0 >= 0)
-
-    assert model.omega0.shape == (model.m, model.n)
-    assert model.A0.shape == (model.k, model.k)
-
-    # fit params
-    assert isinstance(model.alpha, np.ndarray)
-    assert isinstance(model.beta, np.ndarray)
-    assert isinstance(model.eta, np.ndarray)
-    assert isinstance(model.A, np.ndarray)
-    assert isinstance(model.gamma, float)
-
+    # test initial conditions.
     assert np.all(model.alpha == model.alpha0)
     assert np.all(model.beta == model.beta0)
     assert model.gamma == model.gamma0
     assert np.all(model.A == model.A0)
     assert np.all(model.eta == 0)
-
-    # expectations
-    assert isinstance(model.t, np.ndarray)
-    assert isinstance(model.lmb, np.ndarray)
-
-    assert isinstance(model.Z, np.ndarray)
-    assert isinstance(model.R, np.ndarray)
-
-    assert isinstance(model.bound, float)
-
-    assert model.t.shape == (model.k,)
-    assert model.lmb.shape == (model.n,)
-
-    assert model.Z.shape == (model.m, model.n)
-    assert model.R.shape == (model.k, model.k)
-
-    assert np.all(model.Z > 0)
 
 
 def test_step(model: vbasa.Model):
@@ -140,6 +169,8 @@ def test_step(model: vbasa.Model):
     assert isinstance(elbo, float)
     assert elbo == model.bound
 
+    assert_correct_model_properties(model)
+
 
 def test_optimize(model: vbasa.Model):
     initial_elbo = model.bound
@@ -147,3 +178,5 @@ def test_optimize(model: vbasa.Model):
 
     assert isinstance(elbo, float)
     assert elbo >= initial_elbo
+
+    assert_correct_model_properties(model)
