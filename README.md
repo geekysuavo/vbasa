@@ -7,19 +7,45 @@ part of a structure-based active site search tool.
 
 ## Usage
 
-Build and install the **vbasa** python package:
+Building requires a C++20 compiler, CMake 3.24 or newer, and
+[Eigen](https://eigen.tuxfamily.org).
+
+Build and install the **vbasa** python package using
+[uv](https://docs.astral.sh/uv):
 ```bash
-cd vbasa
-python3 setup.py bdist_wheel
-python3 -m pip install dist/*.whl
+uv build
+```
+or to run the tests:
+```bash
+uv run --group test pytest
 ```
 and then use it to fit models:
 ```python
 (Xa, Xb, Ya, Yb) = load_point_cloud_data()
-model = vbasa.model(Xa, Xb, Ya, Yb, prior_precision=1e-6)
-elbo = model.fit(iterations=1000)
+(target_seq, source_seq) = load_sequences()
+model = vbasa.model(
+    Xa, Xb, Ya, Yb, target_seq, source_seq,
+    sub_matrix=vbasa.matrices.blosum62(),
+)
+elbo = model.optimize(iterations=1000)
 print(model.Z)
+print(elbo)
 ```
+
+Model fits may also be performed from multiple initial rotations to ensure
+convergence to the correct posterior mode:
+```python
+model = vbasa.multistart(
+    Xa, Xb, Ya, Yb, target_seq, source_seq,
+    sub_matrix=vbasa.matrices.blosum62(),
+)
+```
+Target pairs need not all have a partner in the source. The last column
+of `model.Z` holds the probability that each target pair is unmatched,
+and explained instead by a uniform density over the target's bounding box.
+Its prior probability is set by `prior_unmatched` (default 0.1) in
+`vbasa.Model` and `vbasa.model`; passing zero forces every target pair
+to be assigned to some source pair.
 
 ## Licensing
 

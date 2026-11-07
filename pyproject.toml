@@ -1,0 +1,30 @@
+[project]
+name = "vbasa"
+version = "0.0.1"
+description = "Variational Bayesian Active Site Alignment"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE.md"]
+authors = [
+    { name = "Bradley Worley", email = "geekysuavo@gmail.com" }
+]
+requires-python = "==3.13.*"
+dependencies = ["numpy>=2.5.4"]
+
+[build-system]
+requires = ["scikit-build-core>=0.12", "pybind11>=3"]
+build-backend = "scikit_build_core.build"
+
+[tool.pytest.ini_options]
+testpaths = ["test"]
+
+[tool.uv]
+package = true
+cache-keys = [
+  { file = "pyproject.toml" },
+  { file = "CMakeLists.txt" },
+  { file = "src/**/*.{h,c,hh,cc,hpp,cpp}" }
+]
+
+[dependency-groups]
+test = ["pytest>=9.2.0"]
