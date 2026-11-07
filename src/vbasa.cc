@@ -114,7 +114,7 @@ PYBIND11_MODULE(vbasa, m) {
          "Expected rotation")
     .def_readonly(
          "Z", &vbasa::Model::Z,
-         "Expected assigmnets")
+         "Expected assignments")
     .def_property_readonly(
          "bound",
          &vbasa::Model::bound,
