@@ -148,10 +148,10 @@ public:
    *  value of the variational lower bound.
    */
   double step(bool modify = true) {
-    update_rotation(modify);
-    update_translation(modify);
     update_assignments(modify);
     update_precisions(modify);
+    update_rotation(modify);
+    update_translation(modify);
 
     return bound();
   }
