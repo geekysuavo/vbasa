@@ -508,7 +508,7 @@ private:
     s(k - 1) *= u_sign * v_sign;
   }
 
-  /* matrix_fisher_moments(): use trapezoidal quadrature to compute the
+  /* matrix_fisher_moments(): use gauss-legendre quadrature to compute the
    * normalizing constant and expected singular values of a matrix
    * fisher density.
    */
@@ -516,7 +516,7 @@ private:
     double si,
     double sj,
     double sk,
-    double& norm,
+    double& ln_C,
     Eigen::Ref<Eigen::VectorXd> es
   ) {
     static const vbasa::GaussLegendre</*n=*/16> gl;
@@ -551,7 +551,7 @@ private:
       }
     }
 
-    norm = si + sj + sk + std::log(g0);
+    ln_C = si + sj + sk + std::log(g0);
     es(0) = g1 / g0;
     es(1) = g2 / g0;
     es(2) = g3 / g0;
