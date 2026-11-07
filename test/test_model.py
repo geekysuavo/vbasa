@@ -208,3 +208,11 @@ def test_optimize(model: vbasa.Model):
     assert elbo >= initial_elbo
 
     assert_correct_model_properties(model)
+
+
+def test_monotonic(model: vbasa.Model):
+    prev_elbo = model.bound
+    for _ in range(50):
+        elbo = model.step()
+        assert elbo >= prev_elbo - 1.0e-9 * abs(prev_elbo)
+        prev_elbo = elbo
