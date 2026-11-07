@@ -39,7 +39,7 @@ public:
 
   /* Model(): default constructor.
    */
-  Model() : Model(1e-3, 1e-3, 1e-4, 1e-6) {}
+  Model() : Model(1, 1, 1e-4, 1e-6) {}
 
   /* observe(): initialize member data given an input data set.
    *
@@ -136,7 +136,12 @@ public:
     Z.resize(m, n);
     R.resize(k, k);
 
-    step(/*modify=*/false);
+    /* update expectations and initialize the translation and precisions. */
+    update_precisions(/*modify=*/false);
+    update_rotation(/*modify=*/false);
+
+    update_translation(/*modify=*/true);
+    update_precisions(/*modify=*/true);
   }
 
   /* step(): perform a single optimization step.
@@ -159,17 +164,17 @@ public:
   /* optimize(): optimize variational parameters.
    *
    * arguments:
-   *  @iters: number of optimization steps to perform.
-   *  @th_abs: absolute threshold for early stopping.
-   *  @th_rel: relative threshold for early stopping.
+   *  @iters: maximum number of optimization steps to perform.
+   *  @th_abs: absolute threshold on the bound for early stopping.
+   *  @th_rel: relative threshold on the bound for early stopping.
    *
    * returns:
    *  final value of the variational lower bound.
    */
   double optimize(
     unsigned int iters = 1000,
-    double th_abs = 0.001,
-    double th_rel = 0.01
+    double th_abs = 1.0e-6,
+    double th_rel = 1.0e-9
   ) {
     double elbo = bound();
 
@@ -177,10 +182,8 @@ public:
       const double elbo_prev = elbo;
       elbo = step();
 
-      const double change = std::abs(elbo_prev - elbo);
-      const double rel_change = change / elbo_prev;
-
-      if (change < th_abs || rel_change < th_rel)
+      const double change = std::abs(elbo - elbo_prev);
+      if (change < th_abs || change < th_rel * std::abs(elbo_prev))
         break;
     }
 

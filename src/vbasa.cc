@@ -122,8 +122,8 @@ PYBIND11_MODULE(vbasa, m) {
     .def("optimize",
          &vbasa::Model::optimize,
          py::arg("iterations") = 1000,
-         py::arg("absolute_tolerance") = 0.001,
-         py::arg("relative_tolerance") = 0.01,
+         py::arg("absolute_tolerance") = 1.0e-6,
+         py::arg("relative_tolerance") = 1.0e-9,
          "Optimize the variational lower bound");
 
   /* vbasa.SubstitutionMatrix */
