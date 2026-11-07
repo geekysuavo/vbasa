@@ -229,9 +229,10 @@ public:
     }
 
     { /* E[ln p(Z) - ln q(Z)] */
+      const auto Zm = matches().array();
       const double base = std::log1p(-w0);
-      elbo += (Z.array() > 0).select(
-        /*true=*/Z.array() * (ln_omega0.array() - Z.array().log() + base),
+      elbo += (Zm > 0).select(
+        /*true=*/Zm * (ln_omega0.array() - Zm.log() + base),
         /*false=*/0.0
       ).sum();
     }
@@ -439,7 +440,7 @@ private:
     if (modify) {
       const double k = dims();
       const double z = matches().sum();
-      const double zqq = (matches().array() * (Qa * Qb).array()).sum();
+      const double zqq = (matches().array() * (Qa + Qb).array()).sum();
 
       alpha = alpha0 + k * z;
       beta = beta0 + 0.5 * zqq;
@@ -567,7 +568,7 @@ private:
 
     proper_svd(A0, U, s, V);
     matrix_fisher_moments(s(0), s(1), s(2), norm, es);
-    return std::log(norm);
+    return norm;
   }
 };
 
