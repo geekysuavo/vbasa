@@ -1,3 +1,4 @@
+import math
 
 import pytest
 
@@ -47,23 +48,24 @@ def assert_correct_model_properties(model: vbasa.Model):
     assert np.all(np.isfinite(model.A0))
 
     # fit params
-    assert isinstance(model.alpha, np.ndarray)
-    assert isinstance(model.beta, np.ndarray)
+    assert isinstance(model.alpha, float)
+    assert isinstance(model.beta, float)
     assert isinstance(model.eta, np.ndarray)
     assert isinstance(model.A, np.ndarray)
     assert isinstance(model.gamma, float)
 
-    for param in (model.alpha, model.beta, model.eta, model.A):
-        assert np.all(np.isfinite(param))
+    assert math.isfinite(model.alpha)
+    assert math.isfinite(model.beta)
+    assert np.all(np.isfinite(model.eta))
+    assert np.all(np.isfinite(model.A))
 
-    for param in (model.alpha, model.beta):
-        assert np.all(param > 0)
-
+    assert model.alpha > 0
+    assert model.beta > 0
     assert model.gamma > 0
 
     # expectations
     assert isinstance(model.t, np.ndarray)
-    assert isinstance(model.lmb, np.ndarray)
+    assert isinstance(model.lmb, float)
 
     assert isinstance(model.Z, np.ndarray)
     assert isinstance(model.R, np.ndarray)
@@ -71,21 +73,26 @@ def assert_correct_model_properties(model: vbasa.Model):
     assert isinstance(model.bound, float)
 
     assert model.t.shape == (model.k,)
-    assert model.lmb.shape == (model.n,)
+    assert model.lmb > 0
 
-    assert model.Z.shape == (model.m, model.n)
+    assert model.Z.shape == (model.m, model.n + 1)
     assert model.R.shape == (model.k, model.k)
 
     for expect in (model.t, model.lmb, model.Z, model.R):
         assert np.all(np.isfinite(expect))
 
-    assert np.all(model.Z > 0)
+    assert np.all(model.Z >= 0)
 
     z_sums_err = np.abs(np.sum(model.Z, axis=1) - 1)
     assert np.all(z_sums_err < 1e-6)
 
-    R_dot_err = np.abs(model.R @ model.R.T - np.eye(3))
-    assert np.all(R_dot_err < 1e-6)
+    if model.argmax_rotation:
+        R_dot_err = np.abs(model.R @ model.R.T - np.eye(3))
+        assert np.all(R_dot_err < 1e-6)
+        assert np.linalg.det(model.R) > 0
+    else:
+        sv = np.linalg.svd(model.R, compute_uv=False)
+        assert np.all(sv <= 1 + 1.0e-9)
 
 
 @pytest.fixture(scope="module")
@@ -105,6 +112,16 @@ def num_source(request) -> int:
 
 @pytest.fixture(params=(3,))
 def dims(request) -> int:
+    return request.param
+
+
+@pytest.fixture(params=(0.0, 0.1))
+def prior_unmatched(request) -> float:
+    return request.param
+
+
+@pytest.fixture(params=(False, True))
+def argmax_rotation(request) -> bool:
     return request.param
 
 
@@ -141,14 +158,26 @@ def points(sizes: tuple) -> tuple:
 
 
 @pytest.fixture
-def model(points: tuple, b62: vbasa.SubstitutionMatrix) -> vbasa.Model:
+def model(
+    points: tuple,
+    prior_unmatched: float,
+    argmax_rotation: bool,
+    b62: vbasa.SubstitutionMatrix,
+) -> vbasa.Model:
     m = points[0].shape[0]
     n = points[2].shape[0]
 
     sa = np.random.choice(b62.vocab, size=(m,)).tolist()
     sb = np.random.choice(b62.vocab, size=(n,)).tolist()
 
-    return vbasa.model(*points, sa, sb, sub_matrix=b62)
+    return vbasa.model(
+        *points,
+        sa,
+        sb,
+        prior_unmatched=prior_unmatched,
+        argmax_rotation=argmax_rotation,
+        sub_matrix=b62,
+    )
 
 
 def test_properties(model: vbasa.Model):
@@ -156,10 +185,10 @@ def test_properties(model: vbasa.Model):
     assert_correct_model_properties(model)
 
     # test initial conditions.
-    assert np.all(model.alpha == model.alpha0)
-    assert np.all(model.beta == model.beta0)
-    assert model.gamma == model.gamma0
-    assert np.all(model.eta == 0)
+    assert model.alpha > model.alpha0
+    assert model.beta > model.beta0
+    assert model.gamma > model.gamma0
+    assert np.all(np.isfinite(model.eta))
 
 
 def test_step(model: vbasa.Model):

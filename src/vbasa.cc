@@ -1,5 +1,11 @@
 
+#include <algorithm>
 #include <cmath>
+#include <limits>
+#include <numbers>
+#include <optional>
+#include <stdexcept>
+#include <vector>
 
 #include <pybind11/pybind11.h>
 #include <pybind11/eigen.h>
@@ -12,6 +18,7 @@
 namespace py = pybind11;
 
 #include "bessel.hh"
+#include "quad.hh"
 #include "model.hh"
 #include "matrix.hh"
 #include "matrices.hh"
@@ -21,11 +28,18 @@ PYBIND11_MODULE(vbasa, m) {
   /* vbasa.Model */
   py::class_<vbasa::Model>(m, "Model")
     /* constructor: */
-    .def(py::init<double, double, double, double>(),
-         py::arg("prior_alpha") = 1e-3,
-         py::arg("prior_beta") = 1e-3,
+    .def(py::init<double, double, double, double, double, bool>(),
+         py::arg("prior_alpha") = 1.0,
+         py::arg("prior_beta") = 1.0,
          py::arg("prior_gamma") = 1e-4,
-         py::arg("prior_rho") = 1e-6)
+         py::arg("prior_rho") = 1e-6,
+         py::arg("prior_unmatched") = 0.1,
+         py::arg("argmax_rotation") = false)
+    /* configuration: */
+    .def_readonly(
+         "argmax_rotation",
+         &vbasa::Model::use_argmax_rotation,
+         "Whether to model rotations using a delta function at the posterior mode")
     /* sizes: */
     .def_property_readonly(
          "m",
@@ -161,6 +175,12 @@ PYBIND11_MODULE(vbasa, m) {
          py::arg("b"),
          "Evaluate the matrix on a pair of sequences");
 
+  /* vbasa.initial_rotations() */
+  m.def("initial_rotations",
+        &vbasa::initial_rotations,
+        py::arg("k") = 3,
+        "All permutations of rotation matrices for the specified dimensionality");
+
   /* vbasa.model() */
   m.def("model",
         &vbasa::create_model,
@@ -170,12 +190,32 @@ PYBIND11_MODULE(vbasa, m) {
         py::arg("source_points_beta"),
         py::arg("target_sequence"),
         py::arg("source_sequence"),
-        py::arg("prior_noise_shape") = 1e-3,
-        py::arg("prior_noise_rate") = 1e-3,
+        py::arg("prior_noise_shape") = 1.0,
+        py::arg("prior_noise_rate") = 1.0,
         py::arg("prior_precision") = 1e-4,
         py::arg("prior_diag") = 1e-6,
+        py::arg("prior_unmatched") = 0.1,
+        py::arg("argmax_rotation") = false,
         py::arg("sub_matrix") = py::none(),
-        "Create an initialize a new model from point cloud data");
+        "Create and initialize a new model from point cloud data");
+
+  /* vbasa.multistart() */
+  m.def("multistart",
+        &vbasa::multistart_model,
+        py::arg("target_points_alpha"),
+        py::arg("target_points_beta"),
+        py::arg("source_points_alpha"),
+        py::arg("source_points_beta"),
+        py::arg("target_sequence"),
+        py::arg("source_sequence"),
+        py::arg("prior_noise_shape") = 1.0,
+        py::arg("prior_noise_rate") = 1.0,
+        py::arg("prior_precision") = 1e-4,
+        py::arg("prior_diag") = 1e-6,
+        py::arg("prior_unmatched") = 0.1,
+        py::arg("argmax_rotation") = false,
+        py::arg("sub_matrix") = py::none(),
+        "Create, initialize and optimize a new model from point cloud data");
 
   /* vbasa.matrices */
   py::module matrices = m.def_submodule("matrices");
