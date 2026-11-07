@@ -19,9 +19,7 @@ auto pam250(double scale = 1.0) {
   /* FIXME: fill init for pam250() */
   init.fill(1.0);
 
-  init.triangularView<Eigen::StrictlyUpper>() =
-    init.triangularView<Eigen::StrictlyLower>();
-
+  init.triangularView<Eigen::StrictlyUpper>() = init.transpose().eval();
   return vbasa::SubstitutionMatrix(vocab, init, scale);
 }
 
@@ -131,9 +129,7 @@ auto blosum62(double scale = 1.0) {
            0.0, -3.0, -3.0, -3.0, -1.0, -2.0, -2.0, -3.0, -3.0,  3.0,
            1.0, -2.0,  1.0, -1.0, -2.0, -2.0,  0.0, -3.0, -1.0,  4.0;
 
-  init.triangularView<Eigen::StrictlyUpper>() =
-    init.triangularView<Eigen::StrictlyLower>();
-
+  init.triangularView<Eigen::StrictlyUpper>() = init.transpose().eval();
   return vbasa::SubstitutionMatrix(vocab, init, scale);
 }
 
