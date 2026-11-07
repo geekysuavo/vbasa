@@ -1,4 +1,4 @@
-
+% ======== ========= ========= ========= ========= ========= ========= ========
 \documentclass{article}
 
 \usepackage{amsmath}
@@ -23,12 +23,14 @@
 \DeclareMathOperator{\trace}{tr}
 \DeclareMathOperator{\mvec}{vec}
 
+% ======== ========= ========= ========= ========= ========= ========= ========
 \begin{document}
 
 \title{Variational Bayesian active site alignment}
 \author{Bradley Worley}
 \maketitle
 
+% ======== ========= ========= ========= ========= ========= ========= ========
 \begin{abstract}
 The problem of protein active site alignment is posed
 as one of joint statistical inference of a pairwise
@@ -37,6 +39,7 @@ a variational inference algorithm is constructed
 for learning posterior parameter estimates.
 \end{abstract}
 
+% ======== ========= ========= ========= ========= ========= ========= ========
 \section{Probabilistic formulation}
 We are given two point sets:
 \begin{itemize}
@@ -45,14 +48,17 @@ We are given two point sets:
  \item $\setY = \{ \m{y}_j^\alpha, \m{y}_j^\beta \}_{j=1}^n$:
   The \emph{source} point set.
 \end{itemize}
-where
-$\forall i,j: \m{x}_i^\alpha,\m{y}_j^\alpha,\m{x}_i^\beta,\m{y}_j^\beta \in \setR^k$.
+where $\forall i,j:
+ \m{x}_i^\alpha,\m{y}_j^\alpha,\m{x}_i^\beta,\m{y}_j^\beta \in \setR^k$.
 Denote by $\setD = (\setX, \setY)$ the input data.
 
 We introduce the following unknown quantities:
 \begin{itemize}
- \item $\m{Z} \in \{0,1\}^{m \times n}$: The matching matrix, such that
-  $z_{ij} = 1$ indicates that $\setX_i$ is matched to $\setY_j$.
+ \item $\m{Z} \in \{0,1\}^{m \times (n + 1)}$: The matching matrix, such
+  that $z_{ij} = 1$ for $j \ge 1$ indicates that $\setX_i$ is matched to
+  $\setY_j$, and $z_{i0} = 1$ indicates that $\setX_i$ is
+  \emph{unmatched}, i.e.~has no partner in $\setY$. Each row of $\m{Z}$
+  contains exactly one nonzero element.
  \item $\m{R} \in \setR^{k \times k}$: The rotation matrix, where $\m{R}$
   is orthonormal and has positive unit determinant.
  \item $\m{t} \in \setR^k$: The translation vector.
@@ -62,14 +68,15 @@ Following the common strategy in probabilistic point cloud registration,
 we define the following likelihood:
 \begin{equation}
 \begin{aligned}
-p(\setD &\mid \m{Z}, \m{R}, \m{t}, \m{\lambda}) =
+p(\setD &\mid \m{Z}, \m{R}, \m{t}, \lambda) =
+ \prod_{i=1}^m \lh[ V^{-2} \rh]^{z_{i0}}
 \\
-&\prod_{i=1}^m \prod_{j=1}^n \lh[
+&\times \prod_{i=1}^m \prod_{j=1}^n \lh[
  \mathcal{N}_k\lh(
-   \m{x}_i^\alpha; \m{R} \m{y}_j^\alpha + \m{t}, \lambda_j^{-1} \m{I}
+   \m{x}_i^\alpha; \m{R} \m{y}_j^\alpha + \m{t}, \lambda^{-1} \m{I}
  \rh) \,
  \mathcal{N}_k\lh(
-   \m{x}_i^\beta; \m{R} \m{y}_j^\beta + \m{t}, \lambda_j^{-1} \m{I}
+   \m{x}_i^\beta; \m{R} \m{y}_j^\beta + \m{t}, \lambda^{-1} \m{I}
  \rh) \rh]^{z_{ij}}
 \end{aligned}
 \end{equation}
@@ -84,12 +91,15 @@ $\m{\Sigma}$,
   -\frac{1}{2} (\m{x} - \m{\mu})^\top \m{\Sigma}^{-1} (\m{x} - \m{\mu})
  \right\}
 \end{equation}
+The two points of an unmatched target pair are each drawn from a uniform
+background density over a region of volume $V$, described below.
 
-We assign an i.i.d.~gamma prior to the precisions,
+All matched pairs share a single noise precision $\lambda$, to which we
+assign a gamma prior,
 \begin{equation}
-p(\m{\lambda}) =
- \prod_{j=1}^n \frac{\beta_0^{\alpha_0}}{\Gamma(\alpha_0)}
-  \lambda_j^{\alpha_0 - 1} \exp\lh\{ -\beta_0 \lambda_j \rh\}
+p(\lambda) =
+ \frac{\beta_0^{\alpha_0}}{\Gamma(\alpha_0)}
+  \lambda^{\alpha_0 - 1} \exp\lh\{ -\beta_0 \lambda \rh\}
 \end{equation}
 a $k$-variate normal prior to the translation vector,
 \begin{equation}
@@ -105,50 +115,75 @@ where $\m{A}_0 \in \setR^{k \times k}$.
 To complete the joint distribution, we assign the following distribution
 to the matching matrix:
 \begin{equation}
-p(\m{Z}) = \prod_{i=1}^m \prod_{j=1}^n \omega_{0,ij}^{z_{ij}}
+p(\m{Z}) = \prod_{i=1}^m \lh[
+  w_0^{z_{i0}}
+  \prod_{j=1}^n \lh( (1 - w_0) \, \omega_{0,ij} \rh)^{z_{ij}}
+ \rh]
 \end{equation}
-where $\m{\Omega}_0$ is a fixed matrix of prior matching probabilities,
-based on e.g.~BLOSUM62.
+where $w_0 \in [0, 1)$ is the prior probability that a target pair is
+unmatched, and $\m{\Omega}_0 \in \setR^{m \times n}$ is a fixed matrix of
+prior matching probabilities, based on e.g.~BLOSUM62, with rows that sum
+to one.
+
+It may be that only part of the target has a partner in the source.
+In this case, $w_0 > 0$ allows target points to remain unmatched, reducing
+spurious assignment bias of $\m{R}$ and $\m{t}$.
+
+The background density is uniform over the axis-aligned bounding box of
+all target points $\{ \m{x}_i^\alpha, \m{x}_i^\beta \}$, with each
+extent clamped below at one unit, and $V$ is the volume of this box.
+A target pair is declared unmatched when its residual under the current
+alignment is large compared with both the noise scale $\E{\lambda}^{-1/2}$
+and the size of the target.
 
 Thus, the final joint distribution has the form,
 \begin{equation}
-p(\setD, \m{Z}, \m{R}, \m{t}, \m{\lambda}) =
- p(\setD \mid \m{Z}, \m{R}, \m{t}, \m{\lambda}) \,
+p(\setD, \m{Z}, \m{R}, \m{t}, \lambda) =
+ p(\setD \mid \m{Z}, \m{R}, \m{t}, \lambda) \,
  p(\m{Z}) \,
  p(\m{R}) \, p(\m{t}) \,
- p(\m{\lambda})
+ p(\lambda)
 \end{equation}
 
+% ======== ========= ========= ========= ========= ========= ========= ========
 \clearpage
 \section{Variational inference}
 We employ a structured mean-field approximation:
 \begin{equation}
-q(\m{Z}, \m{R}, \m{t}, \m{\lambda}) =
+q(\m{Z}, \m{R}, \m{t}, \lambda) =
  q(\m{Z}) \,
  q(\m{R}) \,
  q(\m{t}) \,
- q(\m{\lambda})
+ q(\lambda)
 \end{equation}
 and write the log-joint function (neglecting constant terms):
 \begin{equation}
 \begin{aligned}
 \ln p &= \quad
-   \frac{1}{2} \sum_{i,j} z_{ij} \lh[ k \ln \lambda_j - \lambda_j
+   \frac{1}{2} \sum_{i,j} z_{ij} \lh[ k \ln \lambda - k \ln 2\pi
+    - \lambda
     \lh( \m{x}_i^\alpha - \m{R} \m{y}_j^\alpha - \m{t} \rh)^\top
     \lh( \m{x}_i^\alpha - \m{R} \m{y}_j^\alpha - \m{t} \rh)
    \rh]
 \\ &\quad
- + \frac{1}{2} \sum_{i,j} z_{ij} \lh[ k \ln \lambda_j - \lambda_j
+ + \frac{1}{2} \sum_{i,j} z_{ij} \lh[ k \ln \lambda - k \ln 2\pi
+    - \lambda
     \lh( \m{x}_i^\beta - \m{R} \m{y}_j^\beta - \m{t} \rh)^\top
     \lh( \m{x}_i^\beta - \m{R} \m{y}_j^\beta - \m{t} \rh)
    \rh]
 \\ &\quad
- + \sum_{i,j} z_{ij} \ln \omega_{0,ij} + \trace(\m{A}_0^\top \m{R})
+ + \sum_{i,j} z_{ij} \lh( \ln (1 - w_0) + \ln \omega_{0,ij} \rh)
+ + \sum_i z_{i0} \lh( \ln w_0 - 2 \ln V \rh)
+\\ &\quad
+ + \trace(\m{A}_0^\top \m{R})
  -\frac{1}{2} \m{t}^\top (\gamma_0 \m{I}) \m{t}
 \\ &\quad
- + \sum_j \lh[ (\alpha_0 - 1) \ln \lambda_j - \beta_0 \lambda_j \rh]
+ + (\alpha_0 - 1) \ln \lambda - \beta_0 \lambda
 \end{aligned}
 \end{equation}
+
+All sums over $j$ run over the source pairs $[n]$ only. The unmatched
+column $\m{z}_{\cdot 0}$ appears only where written explicitly.
 
 We introduce a convenient shorthand for the quadratic forms:
 \begin{equation}
@@ -161,25 +196,35 @@ Q_{ij}^\tau \equiv
 \subsection{Updates to $q(\m{Z})$}
 Collecting all terms involving $z_{ij}$ and simplifying yields:
 \begin{equation}
-\ln q^*(\m{Z}) = \sum_{i,j} z_{ij} \ln \zeta_{ij} + \const{}
+\ln q^*(\m{Z}) = \sum_i \sum_{j=0}^n z_{ij} \ln \zeta_{ij} + \const{}
 \end{equation}
 where we have implicitly defined the intermediate quantity $\m{\zeta}$ via,
 \begin{equation}
-\ln \zeta_{ij} \equiv
-  \ln \omega_{0,ij}
-  +k \E{\ln \lambda_j}
-  -\frac{1}{2} \E{\lambda_j} \lh( \E{Q_{ij}^\alpha} + \E{Q_{ij}^\beta} \rh)
+\begin{aligned}
+\ln \zeta_{ij} &\equiv
+  \ln (1 - w_0)
+  +\ln \omega_{0,ij}
+  +k \E{\ln \lambda}
+  -k \ln 2\pi
+  -\frac{1}{2} \E{\lambda} \lh( \E{Q_{ij}^\alpha} + \E{Q_{ij}^\beta} \rh)
+\\
+\ln \zeta_{i0} &\equiv
+  \ln w_0 - 2 \ln V
+\end{aligned}
 \end{equation}
+for $j \in [n]$. If $w_0 = 0$, then $\zeta_{i0}$ is forced to zero.
 
 Normalizing this distribution yields:
 \begin{equation}
-q^*(\m{Z}) = \prod_{i,j} \omega_{ij}^{z_{ij}}
+q^*(\m{Z}) = \prod_i \prod_{j=0}^n \omega_{ij}^{z_{ij}}
 \end{equation}
 where the new variational parameter $\m{\Omega}$ is defined as,
 \begin{equation}
-\omega_{ij} \equiv \frac{\zeta_{ij}}{\sum_\sigma \zeta_{i\sigma}}
+\omega_{ij} \equiv \frac{\zeta_{ij}}{\sum_{\sigma=0}^n \zeta_{i\sigma}}
 \end{equation}
-and therefore $\E{\m{Z}} = \m{\Omega}$.
+and therefore $\E{\m{Z}} = \m{\Omega}$. The updates of $q(\m{R})$,
+$q(\m{t})$ and $q(\lambda)$ below involve only $\omega_{ij}$ for
+$j \in [n]$, so an unmatched target pair has no influence on them.
 
 \subsection{Updates to $q(\m{R})$}
 Collecting all terms involving $\m{R}$ and simplifying yields:
@@ -190,7 +235,7 @@ where the new variational parameter $\m{A}$ is defined by,
 \begin{equation}
 \m{A} \equiv
  \m{A}_0
- +\sum_{i,j} \E{z_{ij}} \E{\lambda_j} \lh(
+ +\sum_{i,j} \E{z_{ij}} \E{\lambda} \lh(
      \m{x}_i^\alpha \m{y}_j^{\alpha\top}
     +\m{x}_i^\beta \m{y}_j^{\beta\top}
     -\E{\m{t}} \m{y}_j^{\alpha\top}
@@ -199,8 +244,31 @@ where the new variational parameter $\m{A}$ is defined by,
 \end{equation}
 
 Computation of $\E{\m{R}}$ from $\m{A}$ requires one-dimensional quadrature
-after a proper singular value decomposition.
+after a proper singular value decomposition
 (cf.~Lee et al., 2018).
+Writing the proper decomposition as
+$\m{A} = \m{U} \m{S} \m{V}^\top$, where $\m{U}, \m{V} \in SO(k)$
+and $\m{S} = \mathrm{diag}(s_1, s_2, s_3)$ with $s_1 \ge s_2 \ge |s_3|$,
+the normalizing constant (with respect to the normalized Haar measure)
+is,
+\begin{equation}
+C_2(\m{A}) = \int_{-1}^{1}
+ \frac{1}{2}
+ I_0\lh( \tfrac{1}{2} (s_1 - s_2) (1 - u) \rh)
+ I_0\lh( \tfrac{1}{2} (s_1 + s_2) (1 + u) \rh)
+ e^{s_3 u} \, du
+\end{equation}
+and the first moment is,
+\begin{equation}
+\E{\m{R}} = \m{U} \,
+ \mathrm{diag}\lh(
+  \frac{\partial \ln C_2}{\partial s_1},
+  \frac{\partial \ln C_2}{\partial s_2},
+  \frac{\partial \ln C_2}{\partial s_3}
+ \rh) \m{V}^\top
+\end{equation}
+where each derivative is the corresponding derivative of the
+integral above, divided by $C_2$.
 
 \subsection{Updates to $q(\m{t})$}
 Collecting all terms involving $\m{t}$ and simplifying yields:
@@ -213,10 +281,10 @@ Collecting all terms involving $\m{t}$ and simplifying yields:
 where the new variational parameters $\gamma$ and $\m{\eta}$ are defined by,
 \begin{equation}
 \begin{aligned}
-\gamma &\equiv \gamma_0 + 2 \sum_{i,j} \E{z_{ij}} \E{\lambda_j}
+\gamma &\equiv \gamma_0 + 2 \sum_{i,j} \E{z_{ij}} \E{\lambda}
 \\
 \m{\eta} &\equiv
- \sum_{i,j} \E{z_{ij}} \E{\lambda_j} \lh[
+ \sum_{i,j} \E{z_{ij}} \E{\lambda} \lh[
    \lh( \m{x}_i^\alpha - \E{\m{R}} \m{y}_j^\alpha \rh)
   +\lh( \m{x}_i^\beta - \E{\m{R}} \m{y}_j^\beta \rh)
  \rh]
@@ -232,24 +300,20 @@ Completing the square yields expressions for the moments:
 \end{aligned}
 \end{equation}
 
-\subsection{Updates to $q(\m{\lambda})$}
-Collecting all terms involving $\lambda_j$ and simplifying yields:
+\subsection{Updates to $q(\lambda)$}
+Collecting all terms involving $\lambda$ and simplifying yields:
 \begin{equation}
-\begin{aligned}
-\ln q^*(\m{\lambda}) &=
- \sum_j \lh[
-  \lh( \alpha_j - 1 \rh) \ln \lambda_j - \beta_j \lambda_j
- \rh]
+\ln q^*(\lambda) =
+ \lh( \alpha - 1 \rh) \ln \lambda - \beta \lambda
  +\const{}
-\end{aligned}
 \end{equation}
-where the new variational parameters $\m{\alpha}$ and $\m{\beta}$ are defined by,
+where the new variational parameters $\alpha$ and $\beta$ are defined by,
 \begin{equation}
 \begin{aligned}
-\alpha_j &\equiv \alpha_0 + k \sum_i \E{z_{ij}}
+\alpha &\equiv \alpha_0 + k \sum_{i,j} \E{z_{ij}}
 \\
-\beta_j &\equiv
- \beta_0 + \frac{1}{2} \sum_i \E{z_{ij}} \lh(
+\beta &\equiv
+ \beta_0 + \frac{1}{2} \sum_{i,j} \E{z_{ij}} \lh(
   \E{Q_{ij}^\alpha} + \E{Q_{ij}^\beta}
  \rh)
 \end{aligned}
@@ -257,13 +321,136 @@ where the new variational parameters $\m{\alpha}$ and $\m{\beta}$ are defined by
 and therefore,
 \begin{equation}
 \begin{aligned}
-\E{\lambda_j} &= \alpha_j / \beta_j
+\E{\lambda} &= \alpha / \beta
 \\
-\E{\ln \lambda_j} &= \psi(\alpha_j) - \ln \beta_j
+\E{\ln \lambda} &= \psi(\alpha) - \ln \beta
 \end{aligned}
 \end{equation}
 where $\psi(\cdot)$ is the digamma function.
 
+% ======== ========= ========= ========= ========= ========= ========= ========
+\clearpage
+\section{Variational lower bound}
+\label{sec:bound}
+The variational objective is,
+\begin{equation}
+\mathcal{L} =
+ \E{\ln p(\setD, \m{Z}, \m{R}, \m{t}, \lambda)}
+ - \E{\ln q(\m{Z})}
+ - \E{\ln q(\m{R})}
+ - \E{\ln q(\m{t})}
+ - \E{\ln q(\lambda)}
+\end{equation}
+where all expectations are taken under $q$.
+
+We expand $\mathcal{L}$ into the following five groups of terms:
+\begin{equation}
+\mathcal{L} =
+ \mathcal{L}_{\setD}
+ + \mathcal{L}_{\m{Z}}
+ + \mathcal{L}_{\m{R}}
+ + \mathcal{L}_{\m{t}}
+ + \mathcal{L}_{\lambda}
+\end{equation}
+
+\subsection{Likelihood}
+Each factor of the likelihood is a product of two $k$-variate normal
+densities with precision $\lambda \m{I}$, so
+\begin{equation}
+\mathcal{L}_{\setD} =
+ \sum_{i,j} \omega_{ij} \lh[
+   k \E{\ln \lambda}
+   - k \ln 2\pi
+   - \frac{1}{2} \E{\lambda}
+     \lh( \E{Q_{ij}^\alpha} + \E{Q_{ij}^\beta} \rh)
+ \rh]
+ - 2 \ln V \sum_i \omega_{i0}
+\end{equation}
+where $\E{Q_{ij}^\tau}$ is evaluated as in the appendix
+(with $\hat{\m{R}}$ in place of $\E{\m{R}}$ for the point estimate).
+The last term is the background density of the unmatched target pairs.
+
+\subsection{Assignment}
+The prior and the entropy of $q(\m{Z})$ combine into a single sum,
+\begin{equation}
+\mathcal{L}_{\m{Z}} =
+ \sum_{i,j} \omega_{ij} \lh(
+   \ln (1 - w_0) + \ln \omega_{0,ij} - \ln \omega_{ij}
+ \rh)
+ + \sum_i \omega_{i0} \lh( \ln w_0 - \ln \omega_{i0} \rh)
+\end{equation}
+with the convention $0 \ln 0 = 0$. If $w_0 = 0$, then
+$\omega_{i0} = 0$ and the last sum vanishes.
+
+\subsection{Rotation}
+Both the prior and $q(\m{R})$ are matrix Fisher densities, and both
+log-densities are linear in $\m{R}$, so
+\begin{equation}
+\begin{aligned}
+\E{\ln p(\m{R})} &=
+ \trace(\m{A}_0^\top \E{\m{R}}) - \ln C_2(\m{A}_0)
+\\
+-\E{\ln q(\m{R})} &=
+ \ln C_2(\m{A}) - \trace(\m{A}^\top \E{\m{R}})
+\end{aligned}
+\end{equation}
+which sum to,
+\begin{equation}
+\mathcal{L}_{\m{R}} =
+ \ln C_2(\m{A}) - \ln C_2(\m{A}_0)
+ - \trace\lh( (\m{A} - \m{A}_0)^\top \E{\m{R}} \rh)
+\end{equation}
+where $\ln C_2(\m{A}_0)$ is a constant, computed once.
+For the point estimate, only the prior contributes,
+\begin{equation}
+\mathcal{L}_{\m{R}} =
+ \trace(\m{A}_0^\top \hat{\m{R}}) - \ln C_2(\m{A}_0)
+\end{equation}
+
+\subsection{Translation}
+The prior and the entropy of the normal factor $q(\m{t})$ give,
+\begin{equation}
+\begin{aligned}
+\E{\ln p(\m{t})} &=
+ -\frac{k}{2} \ln 2\pi
+ +\frac{k}{2} \ln \gamma_0
+ -\frac{\gamma_0}{2} \E{\m{t}^\top \m{t}}
+\\
+-\E{\ln q(\m{t})} &=
+ \frac{k}{2} \lh( 1 + \ln 2\pi \rh)
+ -\frac{k}{2} \ln \gamma
+\end{aligned}
+\end{equation}
+which sum to,
+\begin{equation}
+\mathcal{L}_{\m{t}} =
+ \frac{k}{2} \lh( \ln \gamma_0 - \ln \gamma + 1 \rh)
+ -\frac{\gamma_0}{2} \E{\m{t}^\top \m{t}}
+\end{equation}
+
+\subsection{Precision}
+The prior and the entropy of the gamma factor $q(\lambda)$ give,
+\begin{equation}
+\begin{aligned}
+\E{\ln p(\lambda)} &=
+ \alpha_0 \ln \beta_0 - \ln \Gamma(\alpha_0)
+ +(\alpha_0 - 1) \E{\ln \lambda}
+ -\beta_0 \E{\lambda}
+\\
+-\E{\ln q(\lambda)} &=
+ \alpha - \ln \beta + \ln \Gamma(\alpha)
+ +(1 - \alpha) \psi(\alpha)
+\end{aligned}
+\end{equation}
+so that,
+\begin{equation}
+\mathcal{L}_{\lambda} =
+ \E{\ln p(\lambda)} - \E{\ln q(\lambda)}
+\end{equation}
+with the expectations of $\lambda$ and $\ln \lambda$
+given in the previous section.
+
+% ======== ========= ========= ========= ========= ========= ========= ========
 \clearpage
 \appendix
 \section*{Useful notes}
@@ -294,4 +481,5 @@ leading to the following expressions for expectations:
 %\end{aligned}
 \end{equation}
 
+% ======== ========= ========= ========= ========= ========= ========= ========
 \end{document}
