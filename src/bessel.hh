@@ -3,6 +3,8 @@
 
 namespace vbasa {
 
+namespace {
+
 /* poly(): evaluate a polynomial.
  *
  * arguments:
@@ -25,6 +27,8 @@ double poly(const double (&coeffs)[n], double x) {
   return sum;
 }
 
+} /* namespace */
+
 /* BesselI0: zero-order modified bessel function.
  */
 class BesselI0 {
@@ -42,6 +46,25 @@ public:
     else {
       const double z = 1 - 15 / ax;
       P = std::exp(ax) * poly(p_lg, z);
+      Q = std::sqrt(ax) * poly(q_lg, z);
+    }
+
+    return std::abs(P / Q);
+  }
+
+  /* scaled(): evaluate exp(-|x|) I0(x). */
+  double scaled(double x) const {
+    const double ax = std::abs(x);
+    double P = 0, Q = 0;
+
+    if (ax < 15) {
+      const double y = x * x;
+      P = std::exp(-ax) * poly(p_sm, y);
+      Q = poly(q_sm, 225 - y);
+    }
+    else {
+      const double z = 1 - 15 / ax;
+      P = poly(p_lg, z);
       Q = std::sqrt(ax) * poly(q_lg, z);
     }
 
@@ -112,7 +135,26 @@ public:
       Q = std::sqrt(ax) * poly(q_lg, z);
     }
 
-    return std::abs(P / Q);
+    return std::copysign(std::abs(P / Q), x);
+  }
+
+  /* scaled(): evaluate exp(-|x|) I1(x). */
+  double scaled(double x) const {
+    const double ax = std::abs(x);
+    double P = 0, Q = 0;
+
+    if (ax < 15) {
+      const double y = x * x;
+      P = ax * std::exp(-ax) * poly(p_sm, y);
+      Q = poly(q_sm, 225 - y);
+    }
+    else {
+      const double z = 1 - 15 / ax;
+      P = poly(p_lg, z);
+      Q = std::sqrt(ax) * poly(q_lg, z);
+    }
+
+    return std::copysign(std::abs(P / Q), x);
   }
 
 private:
