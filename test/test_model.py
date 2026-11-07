@@ -159,7 +159,6 @@ def test_properties(model: vbasa.Model):
     assert np.all(model.alpha == model.alpha0)
     assert np.all(model.beta == model.beta0)
     assert model.gamma == model.gamma0
-    assert np.all(model.A == model.A0)
     assert np.all(model.eta == 0)
 
 

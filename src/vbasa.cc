@@ -113,6 +113,7 @@ PYBIND11_MODULE(vbasa, m) {
          py::arg("source_points_alpha"),
          py::arg("source_points_beta"),
          py::arg("prior_matching") = py::none(),
+         py::arg("initial_rotation") = py::none(),
          "Observe a dataset of two paired point clouds")
     .def("step",
          &vbasa::Model::step,

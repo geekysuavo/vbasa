@@ -49,29 +49,42 @@ public:
    *  @ya: [n, k], source alpha points.
    *  @yb: [n, k], source beta points.
    *  @prior_matching: [m, n], optional value of @omega0.
+   *  @initial_rotation: [k, k], optional initial rotation matrix.
    */
   void observe(
     const Eigen::Ref<const Eigen::MatrixXd> xa,
     const Eigen::Ref<const Eigen::MatrixXd> xb,
     const Eigen::Ref<const Eigen::MatrixXd> ya,
     const Eigen::Ref<const Eigen::MatrixXd> yb,
-    std::optional<Eigen::MatrixXd> prior_matching = {}
+    std::optional<Eigen::MatrixXd> prior_matching = {},
+    std::optional<Eigen::MatrixXd> initial_rotation = {}
   ) {
     const auto m = xa.rows();
     const auto n = ya.rows();
     const auto k = xa.cols();
 
     if (xb.rows() != m)
-      throw std::length_error("source row count mismatch");
+      throw std::length_error("target row count mismatch");
 
     if (yb.rows() != n)
-      throw std::length_error("target row count mismatch");
+      throw std::length_error("source row count mismatch");
 
     if (xb.cols() != k || ya.cols() != k || yb.cols() != k)
       throw std::length_error("column count mismatch");
 
     if (k != 3)
       throw std::length_error("only three-dimensional data are supported");
+
+    Eigen::MatrixXd R0 = Eigen::MatrixXd::Identity(k, k);
+    if (initial_rotation) {
+      R0 = *initial_rotation;
+      if (R0.rows() != k || R0.cols() != k)
+        throw std::length_error{"initial rotation size mismatch"};
+
+      const auto I = Eigen::MatrixXd::Identity(k, k);
+      if (!(R0.transpose() * R0).isApprox(I, 1.0e-6) || R0.determinant() <= 0)
+        throw std::domain_error{"initial rotation is not a proper rotation"};
+    }
 
     /* store the input data. */
     Xa = xa;
@@ -111,7 +124,8 @@ public:
     beta.fill(beta0);
     gamma = gamma0;
     eta.setZero();
-    A = A0;
+
+    A = initial_rotation_concentration * R0;
 
     /* initialize the expectations. */
     lambda.resize(n);
@@ -251,6 +265,10 @@ public:
   double tt, entropyR;
 
 private:
+  /* @initial_rotation_concentration: diagonal of the initial A.
+   */
+  static constexpr double initial_rotation_concentration = 1.0e4;
+
   /* @besi0, @besi1: modified bessel functions.
    */
   static constexpr vbasa::BesselI0 besi0{};
